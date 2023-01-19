@@ -31,7 +31,7 @@ with vertica_python.connect(**conn_info) as connection:
 The PySpark syntax is a little bit more complex, but the performance gains are so high that it's difficult making a convincing case for not using it. Let's see how it looks, following the same example as above (Vertica database, environment variables):
 ```
 query = 'SELECT f1, f2, f3 FROM table'
-partitionsCount = 200
+partitionsCount = 50
 
 df = spark.read \
     .format("jdbc") \
@@ -49,8 +49,8 @@ df = spark.read \
     .load()
 ```
 
-## So why is Pandas not the best choice for executing a query returning millions of rows?
-It's pretty simple: Pandas has been designed to be highly optimized for single-threaded data processing. Pandas creator (Wes McKinney) said that he was not thinking about analyzing 100GB or 1TB datasets when he built Pandas. Trying to use Pandas with large datasets (or trying to load millions of rows through ```read_sql()``` is and will not be a great experience.
+## So why is Pandas not the best choice to execute a query returning millions of rows?
+It's pretty simple: Pandas has been designed to be highly optimized for single-threaded data processing. Pandas creator (Wes McKinney) said that he was not thinking about analyzing 100GB or 1TB datasets when he built Pandas. Trying to use Pandas with large datasets (or trying to load millions of rows through ```read_sql()``` is not and will never be a great experience.
 
 <img width="300" alt="image" src="https://user-images.githubusercontent.com/36746674/213457508-8f9fa87e-1351-468c-8dbe-1465b2d1293b.png">
 
@@ -61,8 +61,28 @@ Configuring it **properly**, Spark will execute the SQL query concurrently in JV
 
 ## What are those passed arguments?
 I won't go into details about the first 8 options since they are self explanatory (if not, Spark's official documentation might be a good read: https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html). But I'm going to explain the last four, since these options are the ones that make the magic happen :slightly_smiling_face:
-- `numPartitions`: The maximum number of partitions that can be used for parallelism in table reading. This also determines the maximum number of concurrent JDBC connections. 
-- `partitionColumn`, `lowerBound`, `upperBound`: These options describe how to partition the table when reading in parallel from multiple workers. partitionColumn must be a numeric, date, or timestamp column from the table in question. Notice that lowerBound and upperBound are just used to decide the partition stride, not for filtering the rows in table. All rows in the table will be partitioned and returned. 
+- `numPartitions`: The maximum number of partitions that can be used for parallelism in table reading. This also determines the maximum number of concurrent JDBC connections. The correct number of partitions depends on the memory assigned to your executor instances (JVMs instances), how large is your dataset, and how many executor cores (number of slots available to run tasks in parallel) you have set up in your Spark Session. Keep in mind that Spark assigns one task per partition, so each partition will be processed by one executor core.
+- These options describe how to partition the table when reading in parallel from multiple workers:
+    - `partitionColumn`: partitionColumn must be a numeric, date, or timestamp column from the table in question. For the best possible performance, the column values must be as evenly distributed as possible and have high cardinality. Avoid data skewness. 
+    - `lowerBound`, `upperBound`: Notice that lowerBound and upperBound are just used to decide the partition stride, not for filtering the rows in table. All rows in the table will be partitioned and returned. 
+- What if we don’t know upfront the lower and upper bounds of our column? 
+    - This is a good example where we can use Pandas to identify the `lowerBound` and `upperBound` through Pandas. Once we know that, we can pass the results as arguments to the Spark lower/upper bound parameters.
+    ```
+    min_max_query = f"SELECT min(date), max(date) from ({query}) as q"
+    df_min_max = pd.read_sql(min_max_query, con=connection)
+    min_date = df_min_max['min'].dt.date.values[0]
+    max_date = df_min_max['max'].dt.date.values[0]
+    ```
+- What if we don’t have any numeric, date, or timestamp column, or it has skewed data?
+    - Not a problem. We know SQL, so using a CTE and one Window Function to generate a numeric column through the `row_number()` should be a piece of cake:
+    ```
+    with cte as
+    (
+        SELECT f1, f2, f3
+        FROM table
+    )
+    select *, row_number() over (order by f1) as rn from cte
+    ```
 
  
 
