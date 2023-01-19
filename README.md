@@ -55,7 +55,10 @@ It's pretty simple: Pandas has been designed to be highly optimized for single-t
 <img width="300" alt="image" src="https://user-images.githubusercontent.com/36746674/213457508-8f9fa87e-1351-468c-8dbe-1465b2d1293b.png">
 
 ## What about Spark?
-Configuring it **properly**, Spark will execute the SQL query concurrently in JVM. When transferring large amounts of data between Spark and an external RDBMS by default JDBC data sources loads data sequentially using a single executor thread, which can significantly slow down your application performance, and potentially exhaust the resources of your source system. In order to read data concurrently, the Spark JDBC data source must be configured with appropriate partitioning information so that it can issue multiple concurrent queries to the external database. *source: https://luminousmen.com/post/spark-tips-optimizing-jdbc-data-source-reads*
+Configuring it **properly**, Spark will execute the SQL query concurrently in JVM. I'm highlighting 'properly' because not passing the correct arguments will just make the Spark task use a single executor and at that point you're just swapping Pandas w/ Spark but don't gain any performance increase. More details about this below:
+<br />
+<br />
+When transferring large amounts of data between Spark and an external RDBMS by default JDBC data sources loads data sequentially using a single executor thread, which can significantly slow down your application performance, and potentially exhaust the resources of your source system. In order to read data concurrently, the Spark JDBC data source must be configured with appropriate partitioning information so that it can issue multiple concurrent queries to the external database. *source: https://luminousmen.com/post/spark-tips-optimizing-jdbc-data-source-reads*
 
 <img width="500" alt="image" src="https://user-images.githubusercontent.com/36746674/213458672-4143613f-f44d-48a0-94ee-022c8fc776ef.png">
 
