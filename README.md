@@ -74,7 +74,7 @@ I won't go into details about the first 8 options since they are self explanator
     max_date = df_min_max['max'].dt.date.values[0]
     ```
 - What if we don’t have any numeric, date, or timestamp column, or it has skewed data?
-    - Not a problem. We know SQL, so using a CTE and one Window Function to generate a numeric column through the `row_number()` should be a piece of cake:
+    - Not a problem. We know SQL, so using a CTE and one Window Function to generate a numeric column through the `row_number()` function should be a piece of cake:
     ```
     with cte as
     (
