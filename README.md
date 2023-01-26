@@ -13,14 +13,17 @@ Let’s imagine we have a dataset w/ 20M rows and 30 partitions, lower and upper
 Each year worth of data will be divided in 10 partitions and considering that 1 task will be assigned to 1 partition, each task assigned to years 2020 and 2021 will be responsible for processing 100k rows, but each task assigned to year 2022 will have to process 1.8M rows. That’s a 1700% increase in data that must be processed by one task.
 <br />
 <br />
-The result is that the first 20 tasks will finish processing their assigned partition in no time and after that the 20 executor cores assigned to the completed tasks will sit idle until the last 10 tasks finish processing 1700% more records. This is a waste of resources and increase in operating costs, especially if you use Spark in an EMR cluster, Glue Job, or Databricks.
+The result is that the first 20 tasks will finish processing their assigned partition in no time and after that the 20 executor cores assigned to the completed tasks will sit idle until the last 10 tasks finish processing 1700% more records. This is a waste of resources and increase in operating costs, especially if you use Spark in an EMR cluster, Glue Job, or Databricks. 
+<br />
+<br />
+How do we fix that? There are two things we can do: we can either use a different column for partitioning the data, or if it's critical to use this column, we create two queries and two dataframes instead of one. The first query will load the first two years (the 30 executor instances will be divided between year 2020 and 2021), then the second query will load the final year (so all the 30 executor instances will be used for year 2022). Because of that, one task from year 2022 will now be responsible for processing 600k instead of 1.8M rows. That's a 66% decrease in rows that must be processed by a single executor core and on top of that, we now use all the executor cores from our Spark Session instead of having them sit idle.
 
 ## Why low cardinality columns should be avoided?
 <img width="400" alt="image" src="https://user-images.githubusercontent.com/36746674/214776527-464847f5-19f1-4bd1-b30d-f4ea4cdc1732.png"> 
 (photo source: https://luminousmen.com/)
 <br />
 <br />
-Imagine that the column you want to use for partitioning has only `0` and `1` values - an extreme example indeed, but a common scenarion where boolean values `True` and `False` are converted to numeric values. Based on how the partitions are generated - see the above picture - all the rows with the value `0` will be pushed to the first partition, and all the rows with the value `1` will be pushed to the last partition. So, regardless of how many partitions you want to create, only two of them will be used and because of that the performance of the executed query will suffer.
+Imagine that the column you want to use for partitioning has only `0` and `1` values - an extreme example indeed, but a common scenarion where boolean values `True` and `False` are converted to numeric values. Based on how the partitions are generated - see the above picture - all the rows with the value `0` will be pushed to the first partition and all the rows with the value `1` will be pushed to the last partition. So, regardless of how many partitions you want to create, only two partitions will be populated and only two executor cores will do all the work, the other ones will be in an idle state. Because of that, the performance of the executed query will suffer dramatically.
 
 ## How can you improve the execution time of a query with more than 95%?
 This is a fair question. You don't read everyday about 95% improvements in a project by just changing one library with another, but there is a reason why 80% of the Fortune 500 companies use Apache Spark (*source: https://spark.apache.org/*). 
