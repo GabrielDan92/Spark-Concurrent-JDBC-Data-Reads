@@ -17,7 +17,10 @@ The result is that the first 20 tasks will finish processing their assigned part
 
 ## Why low cardinality columns should be avoided?
 <img width="358" alt="image" src="https://user-images.githubusercontent.com/36746674/214776527-464847f5-19f1-4bd1-b30d-f4ea4cdc1732.png"> 
-*(photo source: https://luminousmen.com/post/spark-tips-optimizing-jdbc-data-source-reads)*
+(photo source: \https://luminousmen.com/post/spark-tips-optimizing-jdbc-data-source-reads/ *)
+<br />
+<br />
+Imagine that the column you want to use for partitioning has only `0` and `1` values - a common scenarion where boolean values `True` and `False` are converted to numeric values. Based on how the patitions are generated - see the above picture - all the rows with the value `0` will be pushed to the first partition, and all the rows with the value `1` will be pushed to the last partition. So, regardless of how many partitions you want to create, only two of them will be used and because of that the performance of the executed query will suffer.
 
 
 ## How can you decrease the execution time of a query with more than 95%?
