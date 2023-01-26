@@ -7,7 +7,7 @@ I have two main objectives:
 
 <img width="350" alt="image" src="https://user-images.githubusercontent.com/36746674/214775578-63fd5b8f-20e0-4f52-b9cb-f399d83046bb.png">
 
-Let’s imagine we have a dataset w/ 20M rows and 30 partitions, lower and upper bound being 2020-01-01 and 2022-12-31 (I will talk in more detail about `lowerbound` and `upperbound` below. For now, just know that these bounds don't filter the data but they define how the data will be read and partitioned in the Spark dataframe). For the purpose of the presentation, we’ll use a Spark Session with 30 executor cores (30 slots available to run tasks). Keep in mind that Spark assigns one task per partition, so each partition will be processed by one executor core.
+Let’s imagine we have a dataset w/ 20M rows and 30 partitions, lower and upper bound being 2020-01-01 and 2022-12-31 (I will talk in more detail about `lowerbound` and `upperbound` below. For now, just know that these bounds don't filter the data but they define how the data will be read and partitioned in the Spark dataframe). For the purpose of the presentation, we’ll use a Spark Session with 30 executor cores (we can run up to 30 tasks at the same time). Keep in mind that Spark assigns one task per partition, so each partition will be processed by one executor core.
 <br />
 <br />
 Each year worth of data will be divided in 10 partitions and considering that 1 task will be assigned to 1 partition, each task assigned to years 2020 and 2021 will be responsible for processing 100k rows, but each task assigned to year 2022 will have to process 1.8M rows. That’s a 1700% increase in data that must be processed by one task.
