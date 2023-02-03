@@ -2,6 +2,10 @@
 I have two main objectives:
 - demystify PySpark's partitioning techniques for reading data concurrently from a Relational Database and why data skewed and low cardinality columns should be avoided
 - talk about how I've managed to improve the performance of my queries in a production Amazon EMR environment and decrease the execution time with **more than 95%**, by replacing Panda's `read_sql()` with PySpark's JDBC functionality
+<br />
+I've also written an article about this topic on <a href="https://medium.com/@pintoiu.gabriel/spark-concurrent-jdbc-data-reads-5423552c93f5/" target="_blank">Medium</a>.
+<br />
+<br />
 
 ## Why data skewed columns should be avoided?
 
