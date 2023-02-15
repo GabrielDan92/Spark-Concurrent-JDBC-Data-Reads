@@ -3,31 +3,10 @@ I have two main objectives:
 - demystify PySpark's partitioning techniques for reading data concurrently from a Relational Database and why data skewed and low cardinality columns should be avoided
 - talk about how I've managed to improve the performance of my queries in a production Amazon EMR environment and decrease the execution time with **more than 95%**, by replacing Panda's `read_sql()` with PySpark's JDBC functionality
 <br />
+
 I've also written an article about this topic on <a href="https://medium.com/@pintoiu.gabriel/spark-concurrent-jdbc-data-reads-5423552c93f5/" target="_blank">Medium</a>.
 <br />
 <br />
-
-## Why data skewed columns should be avoided?
-
-<img width="350" alt="image" src="https://user-images.githubusercontent.com/36746674/214775578-63fd5b8f-20e0-4f52-b9cb-f399d83046bb.png">
-
-Let’s imagine we have a dataset w/ 20M rows and 30 partitions, lower and upper bound being 2020-01-01 and 2022-12-31 (I will talk in more detail about `lowerbound` and `upperbound` below. For now, just know that these bounds don't filter the data but they define how the data will be read and partitioned in the Spark dataframe). For the purpose of the presentation, we’ll use a Spark Session with 30 executor cores (we can run up to 30 tasks at the same time). Keep in mind that Spark assigns one task per partition, so each partition will be processed by one executor core.
-<br />
-<br />
-Each year worth of data will be divided in 10 partitions and considering that 1 task will be assigned to 1 partition, each task assigned to years 2020 and 2021 will be responsible for processing 100k rows, but each task assigned to year 2022 will have to process 1.8M rows. That’s a 1700% increase in data that must be processed by one task.
-<br />
-<br />
-The result is that the first 20 tasks will finish processing their assigned partition in no time and after that the 20 executor cores assigned to the completed tasks will sit idle until the last 10 tasks finish processing 1700% more records. This is a waste of resources and increase in operating costs, especially if you use Spark in an EMR cluster, Glue Job, or Databricks. 
-<br />
-<br />
-How do we fix that? There are two things we can do: we can either use a different column for partitioning the data, or if it's critical to use this column, we create two queries and two dataframes instead of one. The first query will load the first two years (the 30 executor cores will be divided between year 2020 and 2021), then the second query will load the final year (so all the 30 executor cores will be used for year 2022). Because of that, one task from year 2022 will now be responsible for processing 600k instead of 1.8M rows. That's a 66% decrease in rows that must be processed by a single executor core and on top of that, we now use all the executor cores from our Spark Session instead of having them sit idle.
-
-## Why low cardinality columns should be avoided?
-<img width="400" alt="image" src="https://user-images.githubusercontent.com/36746674/214776527-464847f5-19f1-4bd1-b30d-f4ea4cdc1732.png"> 
-(photo source: https://luminousmen.com/)
-<br />
-<br />
-Imagine that the column you want to use for partitioning has only `0` and `1` values - an extreme example indeed, but a common scenarion where boolean values `True` and `False` are converted to numeric values. Based on how the partitions are generated - see the above picture - all the rows with the value `0` will be pushed to the first partition and all the rows with the value `1` will be pushed to the last partition. So, regardless of how many partitions you want to create, only two partitions will be populated and only two executor cores will do all the work, the other ones will be in an idle state. Because of that, the performance of the executed query will suffer dramatically.
 
 ## How can you improve the execution time of a query with more than 95%?
 This is a fair question. You don't read everyday about 95% improvements in a project by just changing one library with another, but there is a reason why 80% of the Fortune 500 companies use Apache Spark (*source: https://spark.apache.org/*). 
@@ -115,3 +94,24 @@ I won't go into details about the first 8 options since they are self explanator
     select *, row_number() over (order by f1) as rn from cte
     ```
     
+## Why data skewed columns should be avoided?
+
+<img width="350" alt="image" src="https://user-images.githubusercontent.com/36746674/214775578-63fd5b8f-20e0-4f52-b9cb-f399d83046bb.png">
+
+Let’s imagine we have a dataset w/ 20M rows and 30 partitions, lower and upper bound being 2020-01-01 and 2022-12-31 (I will talk in more detail about `lowerbound` and `upperbound` below. For now, just know that these bounds don't filter the data but they define how the data will be read and partitioned in the Spark dataframe). For the purpose of the presentation, we’ll use a Spark Session with 30 executor cores (we can run up to 30 tasks at the same time). Keep in mind that Spark assigns one task per partition, so each partition will be processed by one executor core.
+<br />
+<br />
+Each year worth of data will be divided in 10 partitions and considering that 1 task will be assigned to 1 partition, each task assigned to years 2020 and 2021 will be responsible for processing 100k rows, but each task assigned to year 2022 will have to process 1.8M rows. That’s a 1700% increase in data that must be processed by one task.
+<br />
+<br />
+The result is that the first 20 tasks will finish processing their assigned partition in no time and after that the 20 executor cores assigned to the completed tasks will sit idle until the last 10 tasks finish processing 1700% more records. This is a waste of resources and increase in operating costs, especially if you use Spark in an EMR cluster, Glue Job, or Databricks. 
+<br />
+<br />
+How do we fix that? There are two things we can do: we can either use a different column for partitioning the data, or if it's critical to use this column, we create two queries and two dataframes instead of one. The first query will load the first two years (the 30 executor cores will be divided between year 2020 and 2021), then the second query will load the final year (so all the 30 executor cores will be used for year 2022). Because of that, one task from year 2022 will now be responsible for processing 600k instead of 1.8M rows. That's a 66% decrease in rows that must be processed by a single executor core and on top of that, we now use all the executor cores from our Spark Session instead of having them sit idle.
+
+## Why low cardinality columns should be avoided?
+<img width="400" alt="image" src="https://user-images.githubusercontent.com/36746674/214776527-464847f5-19f1-4bd1-b30d-f4ea4cdc1732.png"> 
+(photo source: https://luminousmen.com/)
+<br />
+<br />
+Imagine that the column you want to use for partitioning has only `0` and `1` values - an extreme example indeed, but a common scenarion where boolean values `True` and `False` are converted to numeric values. Based on how the partitions are generated - see the above picture - all the rows with the value `0` will be pushed to the first partition and all the rows with the value `1` will be pushed to the last partition. So, regardless of how many partitions you want to create, only two partitions will be populated and only two executor cores will do all the work, the other ones will be in an idle state. Because of that, the performance of the executed query will suffer dramatically.
